@@ -233,16 +233,31 @@ public class Camera {
     }
 
     pictureImageReader.setOnImageAvailableListener(
-        reader -> {
-          try (Image image = reader.acquireLatestImage()) {
-            ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-            writeToFile(buffer, file);
-            result.success(null);
-          } catch (IOException e) {
-            result.error("IOError", "Failed saving image", null);
+      reader -> {
+        try (Image image = reader.acquireLatestImage()) {
+          ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+
+         // add this code block
+          if (isFrontFacing) {
+            byte[] buf2 = new byte[buffer.remaining()];
+            buffer.get(buf2);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(buf2, 0, buf2.length);
+            Matrix m = new Matrix();
+            m.preScale(-1, 1);
+            Bitmap dst = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), m, false);
+            dst.setDensity(DisplayMetrics.DENSITY_DEFAULT);
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            dst.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+            buffer = ByteBuffer.wrap(stream.toByteArray());
           }
-        },
-        null);
+
+          writeToFile(buffer, file);
+          result.success(null);
+        } catch (IOException e) {
+          result.error("IOError", "Failed saving image", null);
+        }
+      },
+      null);
 
     try {
       final CaptureRequest.Builder captureBuilder =
